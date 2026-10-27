@@ -8,6 +8,7 @@ import DashboardPage from './pages/DashboardPage'
 import WantedPage from './pages/WantedPage'
 import WantedDetailPage from './pages/WantedDetailPage'
 import NewsPage from './pages/NewsPage'
+import NewsDetailPage from './pages/NewsDetailPage'
 import NotFoundPage from './pages/NotFoundPage'
 
 // Misma estructura que en clase: <Router> envuelve el <Navbar> y las <Routes>.
@@ -28,6 +29,7 @@ function App() {
             <Route path="/wanted" element={<WantedPage />} />
             <Route path="/wanted/:id" element={<WantedDetailPage />} />
             <Route path="/news" element={<NewsPage />} />
+            <Route path="/news/:id" element={<NewsDetailPage />} />
           </Route>
           {/* "*" captura cualquier ruta que no exista: el 404 (igual que el "Not Found" de clase). */}
           <Route path="*" element={<NotFoundPage />} />
