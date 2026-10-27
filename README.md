@@ -1,32 +1,58 @@
-# React + TypeScript + Vite
+# Grand Line - Hackathon 2 (CS2031 DBP)
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+**Equipo:** Team 6 · **Código de equipo:** TEAM-029
 
-Currently, two official plugins are available:
+## Integrantes
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+| Nombre | Código | Correo |
+|:-------|:-------|:-------|
+| Adriana Alvarado | 202420154 | adriana.alvarado@utec.edu.pe |
+| Celeste Sevillano | 202310146 | adriana.sevillano@utec.edu.pe |
 
-## React Compiler
+## Cómo ejecutar
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+1. Requisitos: Node 24 LTS (o superior) y npm.
+2. Instalar las dependencias:
 
-## Expanding the Oxlint configuration
+   ```bash
+   npm install
+   ```
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
+3. Copiar `.env.example` a `.env` y dejar la URL base de la API:
 
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
-```
+   ```bash
+   cp .env.example .env
+   ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+   ```txt
+   VITE_API_BASE_URL=https://logpose-api-jg7f.onrender.com/api/v1
+   ```
+
+4. Levantar el proyecto en desarrollo (abre http://localhost:5173):
+
+   ```bash
+   npm run dev
+   ```
+
+5. Verificar que compila sin errores:
+
+   ```bash
+   npm run build
+   ```
+
+## Qué incluye
+
+- Login y rutas privadas.
+- Dashboard con mapa del Grand Line.
+- Se busca, con filtros en la URL y paginación.
+- Noticias, con scroll infinito y filtros en la URL.
+- Sagas, con scrollytelling.
+
+## Notas
+
+- La URL base de la API se lee de `VITE_API_BASE_URL`; no está escrita en el código.
+- No se incluyen contraseñas ni credenciales en el repositorio.
+
+## Tecnologías
+
+React, TypeScript, Vite, React Router, Tailwind CSS y Axios.
