@@ -3,17 +3,17 @@ import { useInfiniteScroll } from '../hooks/useInfiniteScroll'
 import { newsService } from '../services/news.service'
 import ScrollProgress from '../components/ScrollProgress'
 import NewsCard from '../components/NewsCard'
-import type { ApiErrorResponse } from '../types/api'
 
 // Fuera del componente para que la función no cambie en cada render.
-const fetchNews = (cursor: string | null, signal: AbortSignal) => newsService.getFeed({ cursor: cursor ?? undefined }, signal)
+const fetchNews = (cursor: string | null, signal: AbortSignal) =>
+  newsService.getFeed({ cursor: cursor ?? undefined }, signal)
 
 export default function NewsPage() {
   const { items, loading, error, hasMore, retry } = useInfiniteScroll(fetchNews)
 
   // 423 LOG_POSE_REQUIRED = todavía no aprobaron el CP3: mostramos un mensaje claro.
   const locked =
-    axios.isAxiosError<ApiErrorResponse>(error) && error.response?.status === 423
+    axios.isAxiosError(error) && error.response?.status === 423
 
   return (
     <main className="p-6">

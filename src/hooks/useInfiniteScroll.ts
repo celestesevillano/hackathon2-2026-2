@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import axios from 'axios'
 
-// Página de un feed paginado por cursor (la misma forma que devuelve /news/feed).
+// Forma de una página del feed por cursor (la misma de GET /news/feed).
 interface CursorPage<T> {
   items: T[]
   nextCursor: string | null

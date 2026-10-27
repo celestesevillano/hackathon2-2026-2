@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { parseApiError } from '../lib/apiError'
+import { getErrorMessage, getValidationErrors } from '../services/api'
 
 // Registro de la tripulación (CP1): crea la cuenta del equipo y entra directo con la sesión iniciada.
 function RegisterPage() {
@@ -28,9 +28,8 @@ function RegisterPage() {
     } catch (err) {
       // Los errores del servidor (email o nombre ya registrados, datos inválidos) se muestran
       // junto al campo que corresponde.
-      const parsed = parseApiError(err)
-      setMessage(parsed.message)
-      setFieldErrors(parsed.fields)
+      setMessage(getErrorMessage(err))
+      setFieldErrors(getValidationErrors(err))
     } finally {
       setSubmitting(false)
     }
@@ -41,7 +40,7 @@ function RegisterPage() {
       <h1 className="mb-4 text-2xl font-bold">Registrar tripulación</h1>
       <form onSubmit={onSubmit} className="flex flex-col gap-3">
         <label className="flex flex-col gap-1">
-          <input className="rounded border p-2" placeholder="Nombre de la tripulación" minLength={3} maxLength={40} value={teamName} onChange={(e) => setTeamName(e.target.value)} required />
+          <input className="rounded border p-2" placeholder="Nombre de la tripulación" value={teamName} onChange={(e) => setTeamName(e.target.value)} required />
           {fieldErrors.teamName && <span role="alert" className="text-sm text-red-600">{fieldErrors.teamName}</span>}
         </label>
         <label className="flex flex-col gap-1">
@@ -49,7 +48,7 @@ function RegisterPage() {
           {fieldErrors.email && <span role="alert" className="text-sm text-red-600">{fieldErrors.email}</span>}
         </label>
         <label className="flex flex-col gap-1">
-          <input className="rounded border p-2" type="password" placeholder="Contraseña" minLength={8} maxLength={72} value={password} onChange={(e) => setPassword(e.target.value)} required />
+          <input className="rounded border p-2" type="password" placeholder="Contraseña" value={password} onChange={(e) => setPassword(e.target.value)} required />
           {fieldErrors.password && <span role="alert" className="text-sm text-red-600">{fieldErrors.password}</span>}
         </label>
         {message && <p role="alert" className="text-red-600">{message}</p>}

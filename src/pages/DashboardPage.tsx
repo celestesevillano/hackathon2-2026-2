@@ -1,16 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import { dashboardService } from '../services/dashboard.service'
+import { getErrorMessage } from '../services/api'
 import type { DashboardSummary, LogPose } from '../types/api'
-import { useAuth } from '../context/AuthContext'
 import GrandLineMap from '../components/GrandLineMap'
-
-const STATUS_LABELS: Record<string, string> = {
-  AT_LARGE: 'Libres',
-  CAPTURED: 'Capturados',
-  MISSING: 'Desaparecidos',
-}
-
-const formatNumber = (n: number) => n.toLocaleString('es-PE')
+import { STATUS_LABELS, formatBounty } from '../lib/wantedFilters'
 
 interface StatCardProps {
   label: string
@@ -29,7 +22,6 @@ function StatCard({ label, value, detail }: StatCardProps) {
 }
 
 function DashboardPage() {
-  const { team } = useAuth()
   const [summary, setSummary] = useState<DashboardSummary | null>(null)
   const [logPose, setLogPose] = useState<LogPose | null>(null)
   const [loading, setLoading] = useState(true)
@@ -44,8 +36,8 @@ function DashboardPage() {
       const [s, l] = await Promise.all([dashboardService.getSummary(), dashboardService.getLogPose()])
       setSummary(s)
       setLogPose(l)
-    } catch {
-      setError('No se pudieron cargar los indicadores.')
+    } catch (e) {
+      setError(getErrorMessage(e, 'No se pudieron cargar los indicadores.'))
     } finally {
       setLoading(false)
     }
@@ -58,7 +50,7 @@ function DashboardPage() {
 
   return (
     <main className="p-6">
-      <h1 className="mb-4 text-2xl font-bold">Dashboard{team?.name ? ` - ${team.name}` : ''}</h1>
+      <h1 className="mb-4 text-2xl font-bold">Dashboard{summary ? ` - ${summary.team.name}` : ''}</h1>
       {/* Siempre manejamos los tres estados: cargando, error (con reintento) y datos. */}
       {loading && <p>Cargando...</p>}
       {error && (
@@ -71,10 +63,10 @@ function DashboardPage() {
         <>
           <dl className="grid grid-cols-1 gap-3 md:grid-cols-3">
             <StatCard label="Tripulación" value={summary.team.name} detail={summary.team.code} />
-            <StatCard label="Buscados" value={formatNumber(summary.wanted.total)} />
-            <StatCard label="Tripulaciones" value={formatNumber(summary.crews.total)} />
-            <StatCard label="Recompensa total" value={formatNumber(summary.wanted.totalBounty)} />
-            <StatCard label="Recompensa promedio" value={formatNumber(summary.wanted.averageBounty)} />
+            <StatCard label="Buscados" value={summary.wanted.total.toLocaleString('es-PE')} />
+            <StatCard label="Tripulaciones" value={summary.crews.total.toLocaleString('es-PE')} />
+            <StatCard label="Recompensa total" value={formatBounty(summary.wanted.totalBounty)} />
+            <StatCard label="Recompensa promedio" value={formatBounty(summary.wanted.averageBounty)} />
             {summary.crews.mostWanted && (
               <StatCard
                 label="Tripulación más buscada"
@@ -89,7 +81,8 @@ function DashboardPage() {
             <ul className="flex flex-wrap gap-3">
               {Object.entries(summary.wanted.byStatus).map(([status, count]) => (
                 <li key={status} className="rounded border px-3 py-1">
-                  {STATUS_LABELS[status] ?? status}: <strong>{formatNumber(count)}</strong>
+                  {STATUS_LABELS[status as keyof typeof STATUS_LABELS] ?? status}:{' '}
+                  <strong>{count.toLocaleString('es-PE')}</strong>
                 </li>
               ))}
             </ul>
@@ -102,12 +95,14 @@ function DashboardPage() {
                 <li key={b.id} className="rounded border p-3">
                   <p className="font-semibold">{b.name} <span className="font-normal text-slate-500">"{b.epithet}"</span></p>
                   <p className="text-sm text-slate-600">
-                    {formatNumber(b.bounty)} · {b.crew.name} · visto en {b.lastSeenIsland}
+                    {formatBounty(b.bounty)} · {b.crew.name} · visto en {b.lastSeenIsland}
                   </p>
                 </li>
               ))}
             </ol>
           </section>
+
+          <GrandLineMap islands={[...new Set(summary.topBounties.map((b) => b.lastSeenIsland))]} />
         </>
       )}
 
@@ -118,7 +113,6 @@ function DashboardPage() {
           {logPose.unlockedAt && <p className="text-sm text-slate-500">Desde {new Date(logPose.unlockedAt).toLocaleString('es-PE')}</p>}
         </section>
       )}
-      {summary && <GrandLineMap islands={[...new Set(summary.topBounties.map((b) => b.lastSeenIsland))]} />}
     </main>
   )
 }

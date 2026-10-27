@@ -2,17 +2,21 @@ import { useCallback, useEffect, useState } from 'react'
 import axios from 'axios'
 import { useLocation, useSearchParams } from 'react-router-dom'
 import { wantedService } from '../services/wanted.service'
+import { getErrorMessage } from '../services/api'
 import WantedCard from '../components/WantedCard'
+import {
+  DEFAULT_SIZE,
+  DEFAULT_SORT,
+  FRUIT_LABELS,
+  SIZE_OPTIONS,
+  SORT_OPTIONS,
+  STATUS_LABELS,
+  isFruit,
+  isSize,
+  isSort,
+  isStatus,
+} from '../lib/wantedFilters'
 import type { Crew, FruitFilter, WantedPage as WantedPageData, WantedSort, WantedStatus } from '../types/api'
-
-// Valores válidos según el contrato del API (/openapi.json).
-const SIZE_OPTIONS = [10, 20, 50] as const
-const SORT_OPTIONS: WantedSort[] = ['bounty,desc', 'name,asc', 'updatedAt,desc']
-const STATUS_OPTIONS: WantedStatus[] = ['AT_LARGE', 'CAPTURED', 'MISSING']
-const FRUIT_OPTIONS: FruitFilter[] = ['PARAMECIA', 'ZOAN', 'LOGIA', 'NONE']
-
-const DEFAULT_SIZE = 20
-const DEFAULT_SORT: WantedSort = 'bounty,desc'
 
 // Lee un número entero de la URL; si es inválido (o negativo) devuelve el valor por defecto.
 // Así una URL con valores basura nunca rompe la vista.
@@ -27,15 +31,18 @@ function WantedPage() {
   const [params, setParams] = useSearchParams()
   const location = useLocation()
 
+  // Cada valor se valida contra lo que la API acepta: lo inválido se ignora y se usa el valor por defecto.
   const page = readInt(params.get('page'), 0)
   const rawSize = readInt(params.get('size'), DEFAULT_SIZE)
-  const size = (SIZE_OPTIONS as readonly number[]).includes(rawSize) ? rawSize : DEFAULT_SIZE
-  const rawSort = params.get('sort') ?? DEFAULT_SORT
-  const sort = SORT_OPTIONS.find((s) => s === rawSort) ?? DEFAULT_SORT
-  const q = params.get('q') ?? ''
-  const status = STATUS_OPTIONS.find((s) => s === params.get('status'))
+  const size = isSize(rawSize) ? rawSize : DEFAULT_SIZE
+  const rawSort = params.get('sort') ?? ''
+  const sort: WantedSort = isSort(rawSort) ? rawSort : DEFAULT_SORT
+  const q = (params.get('q') ?? '').slice(0, 100) // la API acepta máximo 100 caracteres
+  const rawStatus = params.get('status') ?? ''
+  const status: WantedStatus | '' = isStatus(rawStatus) ? rawStatus : ''
+  const rawFruit = params.get('fruit') ?? ''
+  const fruit: FruitFilter | '' = isFruit(rawFruit) ? rawFruit : ''
   const crewId = params.get('crewId') ?? ''
-  const fruit = FRUIT_OPTIONS.find((f) => f === params.get('fruit'))
 
   const [searchInput, setSearchInput] = useState(q) // lo que se escribe; la URL se actualiza con debounce
   const [data, setData] = useState<WantedPageData | null>(null)
@@ -75,7 +82,12 @@ function WantedPage() {
 
   // Las tripulaciones se piden una sola vez para llenar el select de filtro.
   useEffect(() => {
-    wantedService.getCrews().then(setCrews).catch(() => setCrews([]))
+    const controller = new AbortController()
+    wantedService
+      .getCrews(controller.signal)
+      .then(setCrews)
+      .catch(() => setCrews([]))
+    return () => controller.abort()
   }, [])
 
   // Cada cambio de parámetros vuelve a pedir al servidor (paginación REAL del servidor).
@@ -86,10 +98,13 @@ function WantedPage() {
     setLoading(true)
     setError('')
     wantedService
-      .getWanted({ page, size, sort, q, status, crewId: crewId || undefined, fruit }, controller.signal)
+      .getWanted(
+        { page, size, sort, q, status: status || undefined, crewId, fruit: fruit || undefined },
+        controller.signal,
+      )
       .then(setData)
-      .catch((e: unknown) => {
-        if (!axios.isCancel(e)) setError('No se pudo cargar la lista.')
+      .catch((e) => {
+        if (!axios.isCancel(e)) setError(getErrorMessage(e, 'No se pudo cargar la lista.'))
       })
       .finally(() => {
         if (!controller.signal.aborted) setLoading(false)
@@ -97,8 +112,8 @@ function WantedPage() {
     return () => controller.abort()
   }, [page, size, sort, q, status, crewId, fruit, reloadKey])
 
-  // Si la página actual ya no existe (por ejemplo, un filtro dejó menos resultados),
-  // saltamos a la última página válida en vez de mostrar una página vacía.
+  // Si la página actual ya no existe (la API responde 200 con la lista vacía), saltamos a la última
+  // página válida en vez de dejar al usuario en una página vacía.
   useEffect(() => {
     if (data && data.totalPages > 0 && page >= data.totalPages) {
       update({ page: String(data.totalPages - 1) }, false, true)
@@ -112,23 +127,23 @@ function WantedPage() {
       <h1 className="mb-4 text-2xl font-bold">Se busca</h1>
 
       <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-3">
-        <input className="rounded border p-2 md:col-span-3" placeholder="Buscar por nombre o epíteto..." value={searchInput} onChange={(e) => setSearchInput(e.target.value)} />
-        <select className="rounded border p-2" value={status ?? ''} onChange={(e) => update({ status: e.target.value })}>
+        <input className="rounded border p-2 md:col-span-3" placeholder="Buscar por nombre o epíteto..." maxLength={100} value={searchInput} onChange={(e) => setSearchInput(e.target.value)} />
+        <select className="rounded border p-2" aria-label="Estado" value={status} onChange={(e) => update({ status: e.target.value })}>
           <option value="">Estado: todos</option>
-          {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+          {Object.entries(STATUS_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
         </select>
-        <select className="rounded border p-2" value={crewId} onChange={(e) => update({ crewId: e.target.value })}>
+        <select className="rounded border p-2" aria-label="Tripulación" value={crewId} onChange={(e) => update({ crewId: e.target.value })}>
           <option value="">Tripulación: todas</option>
           {crews.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
-        <select className="rounded border p-2" value={fruit ?? ''} onChange={(e) => update({ fruit: e.target.value })}>
+        <select className="rounded border p-2" aria-label="Fruta del diablo" value={fruit} onChange={(e) => update({ fruit: e.target.value })}>
           <option value="">Fruta: todas</option>
-          {FRUIT_OPTIONS.map((f) => <option key={f} value={f}>{f}</option>)}
+          {Object.entries(FRUIT_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
         </select>
-        <select className="rounded border p-2" value={sort} onChange={(e) => update({ sort: e.target.value === DEFAULT_SORT ? '' : e.target.value })}>
-          {SORT_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+        <select className="rounded border p-2" aria-label="Orden" value={sort} onChange={(e) => update({ sort: e.target.value === DEFAULT_SORT ? '' : e.target.value })}>
+          {SORT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
-        <select className="rounded border p-2" value={size} onChange={(e) => update({ size: e.target.value === String(DEFAULT_SIZE) ? '' : e.target.value })}>
+        <select className="rounded border p-2" aria-label="Tamaño de página" value={size} onChange={(e) => update({ size: e.target.value === String(DEFAULT_SIZE) ? '' : e.target.value })}>
           {SIZE_OPTIONS.map((s) => <option key={s} value={s}>{s} por página</option>)}
         </select>
       </div>
@@ -152,7 +167,7 @@ function WantedPage() {
 
       <nav className="mt-4 flex items-center gap-3">
         <button className="rounded border px-3 py-1 disabled:opacity-50" disabled={page === 0 || loading} onClick={() => update({ page: String(page - 1) }, false)}>Anterior</button>
-        <span>Página {page + 1} de {Math.max(totalPages, 1)}</span>
+        <span>Página {page + 1} de {Math.max(totalPages, 1)}{data ? ` · ${data.totalElements.toLocaleString('es-PE')} buscados` : ''}</span>
         <button className="rounded border px-3 py-1 disabled:opacity-50" disabled={!data || page + 1 >= totalPages || loading} onClick={() => update({ page: String(page + 1) }, false)}>Siguiente</button>
       </nav>
     </main>

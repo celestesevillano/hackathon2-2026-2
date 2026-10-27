@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { parseApiError } from '../lib/apiError'
+import { getErrorMessage } from '../services/api'
 
 interface FromState {
   from?: { pathname: string; search: string }
@@ -34,7 +34,7 @@ function LoginPage() {
       await login({ email, password })
       navigate(destination, { replace: true })
     } catch (err) {
-      setError(parseApiError(err).message)
+      setError(getErrorMessage(err))
     } finally {
       setSubmitting(false)
     }

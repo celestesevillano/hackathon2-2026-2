@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import axios from 'axios'
 import { Link, useLocation, useParams } from 'react-router-dom'
 import { wantedService } from '../services/wanted.service'
+import { FRUIT_LABELS, STATUS_LABELS, formatBounty } from '../lib/wantedFilters'
 import type { WantedDetail } from '../types/api'
 
 function WantedDetailPage() {
@@ -25,7 +26,7 @@ function WantedDetailPage() {
     wantedService
       .getWantedById(id, controller.signal)
       .then(setWanted)
-      .catch((e: unknown) => {
+      .catch((e) => {
         if (axios.isCancel(e)) return
         const notFound = axios.isAxiosError(e) && e.response?.status === 404
         setError(notFound ? 'Este cartel no existe.' : 'No se pudo cargar el cartel.')
@@ -47,9 +48,22 @@ function WantedDetailPage() {
       )}
       {wanted && (
         <article className="mt-4">
-          <h1 className="text-2xl font-bold">{wanted.name}</h1>
-          <pre className="text-sm">{JSON.stringify(wanted, null, 2)}</pre>
-          {/* TODO: diseño del cartel con los campos reales. */}
+          <h1 className="text-2xl font-bold">{wanted.name} <span className="font-normal text-slate-500">"{wanted.epithet}"</span></h1>
+          <p className="text-lg">{formatBounty(wanted.bounty)} · {STATUS_LABELS[wanted.status]}</p>
+          <p className="mt-2">{wanted.bio}</p>
+          <dl className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-2">
+            <div><dt className="text-sm text-slate-500">Tripulación</dt><dd>{wanted.crew.name}</dd></div>
+            <div><dt className="text-sm text-slate-500">Fruta del diablo</dt><dd>{wanted.devilFruit ? `${wanted.devilFruit.name} (${FRUIT_LABELS[wanted.devilFruit.type]})` : 'Sin fruta'}</dd></div>
+            <div><dt className="text-sm text-slate-500">Edad / altura</dt><dd>{wanted.age} años · {wanted.heightCm} cm</dd></div>
+            <div><dt className="text-sm text-slate-500">Nivel de amenaza</dt><dd>{wanted.threatLevel}</dd></div>
+            <div><dt className="text-sm text-slate-500">Visto por última vez</dt><dd>{wanted.lastSeen.island} ({new Date(wanted.lastSeen.seenAt).toLocaleDateString('es-PE')})</dd></div>
+          </dl>
+          <h2 className="mt-4 font-semibold">Historial de recompensa</h2>
+          <ul className="list-disc pl-6">
+            {wanted.bountyHistory.map((h) => (
+              <li key={h.issuedAt}>{formatBounty(h.amount)} · {new Date(h.issuedAt).toLocaleDateString('es-PE')}</li>
+            ))}
+          </ul>
         </article>
       )}
     </main>
