@@ -1,1 +1,42 @@
 @import "tailwindcss";
+
+/*
+  CP5 - Scroll-driven animation: barra de progreso de lectura.
+  animation-timeline: scroll() hace que el progreso de la animación dependa de
+  cuánto has bajado la página, no del tiempo. Solo se activa si el navegador
+  lo soporta (@supports) y si la persona no pidió menos movimiento.
+*/
+.scroll-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 4px;
+  background: #dc2626;
+  transform-origin: 0 50%;
+  transform: scaleX(0);
+}
+
+@keyframes grow-progress {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+@supports (animation-timeline: scroll()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .scroll-progress {
+      animation: grow-progress auto linear;
+      animation-timeline: scroll(root block);
+    }
+  }
+}
+
+/* Mapa del Grand Line: el barco se desliza entre islas, salvo que el usuario pida menos movimiento. */
+.ship {
+  transition: left 0.8s ease-in-out, top 0.8s ease-in-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ship {
+    transition: none;
+  }
+}
