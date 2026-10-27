@@ -8,6 +8,7 @@ import DashboardPage from './pages/DashboardPage'
 import WantedPage from './pages/WantedPage'
 import WantedDetailPage from './pages/WantedDetailPage'
 import NewsPage from './pages/NewsPage'
+import NewsDetailPage from './pages/NewsDetailPage'
 import SagasPage from './pages/SagasPage'
 import SagaDetailPage from './pages/SagaDetailPage'
 import NotFoundPage from './pages/NotFoundPage'
@@ -26,6 +27,7 @@ function App() {
             <Route path="/wanted" element={<WantedPage />} />
             <Route path="/wanted/:id" element={<WantedDetailPage />} />
             <Route path="/news" element={<NewsPage />} />
+            <Route path="/news/:id" element={<NewsDetailPage />} />
             <Route path="/sagas" element={<SagasPage />} />
             <Route path="/sagas/:id" element={<SagaDetailPage />} />
           </Route>
