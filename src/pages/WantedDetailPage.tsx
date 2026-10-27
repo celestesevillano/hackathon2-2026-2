@@ -2,12 +2,12 @@ import { useCallback, useEffect, useState } from 'react'
 import axios from 'axios'
 import { Link, useLocation, useParams } from 'react-router-dom'
 import { wantedService } from '../services/wanted.service'
-import type { Wanted } from '../types/api'
+import type { WantedDetail } from '../types/api'
 
 function WantedDetailPage() {
   const { id } = useParams() // useParams lee el :id de la ruta; siempre llega como string
   const location = useLocation()
-  const [wanted, setWanted] = useState<Wanted | null>(null)
+  const [wanted, setWanted] = useState<WantedDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [reloadKey, setReloadKey] = useState(0) // cambiarlo vuelve a disparar el efecto (reintentar)
@@ -23,9 +23,9 @@ function WantedDetailPage() {
     setLoading(true)
     setError('')
     wantedService
-      .detail(id, controller.signal)
+      .getWantedById(id, controller.signal)
       .then(setWanted)
-      .catch((e) => {
+      .catch((e: unknown) => {
         if (axios.isCancel(e)) return
         const notFound = axios.isAxiosError(e) && e.response?.status === 404
         setError(notFound ? 'Este cartel no existe.' : 'No se pudo cargar el cartel.')

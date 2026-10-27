@@ -1,77 +1,126 @@
-import { createContext, useCallback, useContext, useEffect, useState } from 'react'
-import type { ReactNode } from 'react'
-import { authService } from '../services/auth.service'
-import { setUnauthorizedHandler } from '../services/api'
-import { tokenStorage } from '../lib/token'
-import type { LoginRequest, RegisterRequest, User } from '../types/api'
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from 'react';
+import { authService } from '../services/auth.service';
+import {
+  getAuthToken,
+  onUnauthorized,
+  setAuthToken,
+} from '../services/api';
+import type {
+  LoginRequest,
+  LoginResponse,
+  RegisterRequest,
+  Team,
+  User,
+} from '../types/api';
 
-interface AuthState {
-  user: User | null
-  loading: boolean // true mientras comprobamos si ya había sesión al abrir la app
-  login: (body: LoginRequest) => Promise<void>
-  register: (body: RegisterRequest) => Promise<void>
-  logout: () => void
+export interface AuthContextType {
+  user: User | null;
+  team: Team | null;
+  token: string | null;
+  isLoading: boolean;
+  isAuthenticated: boolean;
+  login: (credentials: LoginRequest) => Promise<LoginResponse>;
+  register: (data: RegisterRequest) => Promise<LoginResponse>;
+  logout: () => void;
+  refreshSession: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthState | null>(null)
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
+export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const [user, setUser] = useState<User | null>(null);
+  const [team, setTeam] = useState<Team | null>(null);
+  const [token, setToken] = useState<string | null>(() => getAuthToken());
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
   const logout = useCallback(() => {
-    tokenStorage.clear()
-    setUser(null)
-  }, [])
+    setAuthToken(null);
+    setToken(null);
+    setUser(null);
+    setTeam(null);
+  }, []);
 
-  // RESTAURAR SESIÓN: al montar la app (F5 o navegador reabierto) miramos si hay token.
-  // Si existe, /auth/me confirma que sigue válido; si venció, el interceptor lo borra.
-  // Mientras tanto "loading" evita mostrar el login a alguien que sí tenía sesión.
-  useEffect(() => {
-    if (!tokenStorage.get()) {
-      setLoading(false)
-      return
+  const refreshSession = useCallback(async () => {
+    const storedToken = getAuthToken();
+    if (!storedToken) {
+      setUser(null);
+      setTeam(null);
+      setToken(null);
+      setIsLoading(false);
+      return;
     }
-    authService
-      .me()
-      .then(setUser)
-      .catch(() => tokenStorage.clear())
-      .finally(() => setLoading(false))
-  }, [])
 
-  // Si cualquier petición recibe 401, cerramos la sesión local.
+    try {
+      const me = await authService.getMe();
+      setUser(me.user);
+      setTeam(me.team);
+      setToken(storedToken);
+    } catch {
+      // Token is invalid, expired, or server rejected it
+      logout();
+    } finally {
+      setIsLoading(false);
+    }
+  }, [logout]);
+
   useEffect(() => {
-    setUnauthorizedHandler(() => setUser(null))
-  }, [])
+    // Initial session restoration on mount
+    refreshSession();
 
-  // Guardamos el token y pedimos al usuario con /auth/me: así no dependemos de la forma exacta
-  // de la respuesta del login.
-  const startSession = async (token: string) => {
-    tokenStorage.set(token)
-    setUser(await authService.me())
+    // Listen to automatic 401s from axios interceptor
+    const unsubscribe = onUnauthorized(() => {
+      logout();
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [refreshSession, logout]);
+
+  const login = useCallback(async (credentials: LoginRequest): Promise<LoginResponse> => {
+    const res = await authService.login(credentials);
+    setAuthToken(res.token);
+    setToken(res.token);
+    setUser(res.user);
+    setTeam(res.team);
+    return res;
+  }, []);
+
+  const register = useCallback(async (data: RegisterRequest): Promise<LoginResponse> => {
+    const res = await authService.register(data);
+    setAuthToken(res.token);
+    setToken(res.token);
+    setUser(res.user);
+    setTeam(res.team);
+    return res;
+  }, []);
+
+  const value: AuthContextType = {
+    user,
+    team,
+    token,
+    isLoading,
+    isAuthenticated: Boolean(user && token),
+    login,
+    register,
+    logout,
+    refreshSession,
+  };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+};
+
+export const useAuth = (): AuthContextType => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
   }
-
-  const login = async (body: LoginRequest) => {
-    const { token } = await authService.login(body)
-    await startSession(token)
-  }
-
-  // El registro crea la cuenta y entra directo a la app con la sesión iniciada.
-  const register = async (body: RegisterRequest) => {
-    const { token } = await authService.register(body)
-    await startSession(token)
-  }
-
-  return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
-      {children}
-    </AuthContext.Provider>
-  )
-}
-
-// eslint-disable-next-line react-refresh/only-export-components
-export function useAuth() {
-  const ctx = useContext(AuthContext)
-  if (!ctx) throw new Error('useAuth debe usarse dentro de <AuthProvider>')
-  return ctx
-}
+  return context;
+};

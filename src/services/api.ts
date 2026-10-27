@@ -1,37 +1,108 @@
-import axios from 'axios'
-import { tokenStorage } from '../lib/token'
+import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
+import type { ApiErrorResponse } from '../types/api';
 
-// Una sola instancia con la baseURL: así no repetimos la URL ni el header en cada llamada.
-const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL,
-})
+const TOKEN_KEY = 'logpose_jwt_token';
 
-// Interceptor de REQUEST: corre antes de CADA petición.
-// Si hay token, lo agrega como "Authorization: Bearer <token>" (igual que en Postman).
-api.interceptors.request.use((config) => {
-  const token = tokenStorage.get()
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`
+let onUnauthorizedHandler: (() => void) | null = null;
+
+export const getAuthToken = (): string | null => {
+  try {
+    return localStorage.getItem(TOKEN_KEY);
+  } catch {
+    return null;
   }
-  return config
-})
+};
 
-// Interceptor de RESPONSE: si el token venció (401) lo borramos y avisamos a la app
-// para que mande al login. Así ninguna pantalla tiene que repetir esta lógica.
-let onUnauthorized: () => void = () => {}
-export const setUnauthorizedHandler = (handler: () => void) => {
-  onUnauthorized = handler
-}
+export const setAuthToken = (token: string | null): void => {
+  try {
+    if (token) {
+      localStorage.setItem(TOKEN_KEY, token);
+    } else {
+      localStorage.removeItem(TOKEN_KEY);
+    }
+  } catch {
+    // Ignore localStorage errors (e.g. private browsing restrictions)
+  }
+};
+
+export const onUnauthorized = (handler: () => void): (() => void) => {
+  onUnauthorizedHandler = handler;
+  return () => {
+    if (onUnauthorizedHandler === handler) {
+      onUnauthorizedHandler = null;
+    }
+  };
+};
+
+export const api = axios.create({
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'https://logpose-api-jg7f.onrender.com/api/v1',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  timeout: 15000,
+});
+
+api.interceptors.request.use(
+  (config: InternalAxiosRequestConfig) => {
+    const token = getAuthToken();
+    if (token && config.headers) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error: unknown) => Promise.reject(error)
+);
 
 api.interceptors.response.use(
   (response) => response,
-  (error: unknown) => {
-    if (axios.isAxiosError(error) && error.response?.status === 401) {
-      tokenStorage.clear()
-      onUnauthorized()
+  (error: AxiosError<ApiErrorResponse>) => {
+    if (error.response?.status === 401) {
+      // Token invalid or expired
+      setAuthToken(null);
+      if (onUnauthorizedHandler) {
+        onUnauthorizedHandler();
+      }
     }
-    return Promise.reject(error)
-  },
-)
+    return Promise.reject(error);
+  }
+);
 
-export default api
+/**
+ * Extracts a friendly error message from an API error response.
+ */
+export const getErrorMessage = (error: unknown, fallback = 'Ha ocurrido un error inesperado'): string => {
+  if (axios.isAxiosError(error)) {
+    const apiError = error.response?.data as ApiErrorResponse | undefined;
+    if (apiError?.message) {
+      return apiError.message;
+    }
+    if (error.code === 'ECONNABORTED') {
+      return 'La solicitud tardó demasiado tiempo en responder.';
+    }
+    if (!error.response) {
+      return 'No se pudo conectar con el servidor. Verifica tu conexión.';
+    }
+  }
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return fallback;
+};
+
+/**
+ * Extracts validation error field map (field -> message) from a 400 response.
+ */
+export const getValidationErrors = (error: unknown): Record<string, string> => {
+  const result: Record<string, string> = {};
+  if (axios.isAxiosError(error)) {
+    const apiError = error.response?.data as ApiErrorResponse | undefined;
+    if (apiError?.details && Array.isArray(apiError.details)) {
+      for (const item of apiError.details) {
+        if (item.field && item.message) {
+          result[item.field] = item.message;
+        }
+      }
+    }
+  }
+  return result;
+};

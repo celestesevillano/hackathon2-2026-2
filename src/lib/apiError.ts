@@ -1,5 +1,5 @@
 import axios from 'axios'
-import type { ApiErrorBody } from '../types/api'
+import type { ApiErrorResponse } from '../types/api'
 
 // Mensajes en español para los códigos de error que el frontend debe distinguir.
 const CODE_MESSAGES: Record<string, string> = {
@@ -16,7 +16,7 @@ const CODE_FIELDS: Record<string, string> = {
 
 // Convierte un error de Axios en un mensaje general y errores por campo.
 export function parseApiError(error: unknown): { message: string; fields: Record<string, string> } {
-  if (axios.isAxiosError<ApiErrorBody>(error)) {
+  if (axios.isAxiosError<ApiErrorResponse>(error)) {
     const body = error.response?.data
     const fields: Record<string, string> = {}
     for (const d of body?.details ?? []) fields[d.field] = d.message

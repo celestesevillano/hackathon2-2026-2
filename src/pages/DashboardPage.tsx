@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { dashboardService } from '../services/dashboard.service'
-import { logPoseService } from '../services/logpose.service'
-import type { DashboardSummary, LogPoseState } from '../types/api'
+import type { DashboardSummary, LogPose } from '../types/api'
 import { useAuth } from '../context/AuthContext'
 import GrandLineMap from '../components/GrandLineMap'
 
@@ -30,9 +29,9 @@ function StatCard({ label, value, detail }: StatCardProps) {
 }
 
 function DashboardPage() {
-  const { user } = useAuth()
+  const { team } = useAuth()
   const [summary, setSummary] = useState<DashboardSummary | null>(null)
-  const [logPose, setLogPose] = useState<LogPoseState | null>(null)
+  const [logPose, setLogPose] = useState<LogPose | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -42,7 +41,7 @@ function DashboardPage() {
     setLoading(true)
     setError('')
     try {
-      const [s, l] = await Promise.all([dashboardService.summary(), logPoseService.get()])
+      const [s, l] = await Promise.all([dashboardService.getSummary(), dashboardService.getLogPose()])
       setSummary(s)
       setLogPose(l)
     } catch {
@@ -59,7 +58,7 @@ function DashboardPage() {
 
   return (
     <main className="p-6">
-      <h1 className="mb-4 text-2xl font-bold">Dashboard{user?.teamName ? ` - ${user.teamName}` : ''}</h1>
+      <h1 className="mb-4 text-2xl font-bold">Dashboard{team?.name ? ` - ${team.name}` : ''}</h1>
       {/* Siempre manejamos los tres estados: cargando, error (con reintento) y datos. */}
       {loading && <p>Cargando...</p>}
       {error && (
@@ -76,11 +75,13 @@ function DashboardPage() {
             <StatCard label="Tripulaciones" value={formatNumber(summary.crews.total)} />
             <StatCard label="Recompensa total" value={formatNumber(summary.wanted.totalBounty)} />
             <StatCard label="Recompensa promedio" value={formatNumber(summary.wanted.averageBounty)} />
-            <StatCard
-              label="Tripulación más buscada"
-              value={summary.crews.mostWanted.name}
-              detail={`${summary.crews.mostWanted.shipName} · ${summary.crews.mostWanted.memberCount} miembros`}
-            />
+            {summary.crews.mostWanted && (
+              <StatCard
+                label="Tripulación más buscada"
+                value={summary.crews.mostWanted.name}
+                detail={`${summary.crews.mostWanted.shipName} · ${summary.crews.mostWanted.memberCount} miembros`}
+              />
+            )}
           </dl>
 
           <section className="mt-6">

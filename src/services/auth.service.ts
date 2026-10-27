@@ -1,21 +1,24 @@
-import api from './api'
-import type { AuthResponse, LoginRequest, RegisterRequest, User } from '../types/api'
+import { api } from './api';
+import type {
+  LoginRequest,
+  LoginResponse,
+  MeResponse,
+  RegisterRequest,
+} from '../types/api';
 
-// Los *.service.ts son TypeScript puro (no .tsx) porque no son componentes:
-// solo agrupan las llamadas HTTP de un tema.
 export const authService = {
-  register: async (body: RegisterRequest) => {
-    const { data } = await api.post<AuthResponse>('/auth/register', body)
-    return data
+  async register(data: RegisterRequest): Promise<LoginResponse> {
+    const response = await api.post<LoginResponse>('/auth/register', data);
+    return response.data;
   },
-  // El login es con email y password (el código de equipo lo asigna el backend al registrar).
-  login: async (body: LoginRequest) => {
-    const { data } = await api.post<AuthResponse>('/auth/login', body)
-    return data
+
+  async login(data: LoginRequest): Promise<LoginResponse> {
+    const response = await api.post<LoginResponse>('/auth/login', data);
+    return response.data;
   },
-  // Sirve para restaurar la sesión: si el token es válido devuelve al usuario.
-  me: async () => {
-    const { data } = await api.get<User>('/auth/me')
-    return data
+
+  async getMe(signal?: AbortSignal): Promise<MeResponse> {
+    const response = await api.get<MeResponse>('/auth/me', { signal });
+    return response.data;
   },
-}
+};

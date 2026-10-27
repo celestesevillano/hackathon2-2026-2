@@ -1,17 +1,18 @@
 import { useCallback, useEffect, useState } from 'react'
 import axios from 'axios'
 import { useLocation, useSearchParams } from 'react-router-dom'
-import { SIZE_OPTIONS, SORT_OPTIONS, wantedService } from '../services/wanted.service'
-import { crewsService } from '../services/crews.service'
+import { wantedService } from '../services/wanted.service'
 import WantedCard from '../components/WantedCard'
-import type { Crew, Page, Wanted } from '../types/api'
+import type { Crew, FruitFilter, WantedPage as WantedPageData, WantedSort, WantedStatus } from '../types/api'
 
-const DEFAULT_SIZE = 10
-const DEFAULT_SORT = SORT_OPTIONS[0]
+// Valores válidos según el contrato del API (/openapi.json).
+const SIZE_OPTIONS = [10, 20, 50] as const
+const SORT_OPTIONS: WantedSort[] = ['bounty,desc', 'name,asc', 'updatedAt,desc']
+const STATUS_OPTIONS: WantedStatus[] = ['AT_LARGE', 'CAPTURED', 'MISSING']
+const FRUIT_OPTIONS: FruitFilter[] = ['PARAMECIA', 'ZOAN', 'LOGIA', 'NONE']
 
-// TODO: confirmar con el Swagger los valores reales de estos filtros.
-const STATUS_OPTIONS: string[] = []
-const FRUIT_OPTIONS: string[] = []
+const DEFAULT_SIZE = 20
+const DEFAULT_SORT: WantedSort = 'bounty,desc'
 
 // Lee un número entero de la URL; si es inválido (o negativo) devuelve el valor por defecto.
 // Así una URL con valores basura nunca rompe la vista.
@@ -30,14 +31,14 @@ function WantedPage() {
   const rawSize = readInt(params.get('size'), DEFAULT_SIZE)
   const size = (SIZE_OPTIONS as readonly number[]).includes(rawSize) ? rawSize : DEFAULT_SIZE
   const rawSort = params.get('sort') ?? DEFAULT_SORT
-  const sort = (SORT_OPTIONS as readonly string[]).includes(rawSort) ? rawSort : DEFAULT_SORT
+  const sort = SORT_OPTIONS.find((s) => s === rawSort) ?? DEFAULT_SORT
   const q = params.get('q') ?? ''
-  const status = params.get('status') ?? ''
+  const status = STATUS_OPTIONS.find((s) => s === params.get('status'))
   const crewId = params.get('crewId') ?? ''
-  const fruit = params.get('fruit') ?? ''
+  const fruit = FRUIT_OPTIONS.find((f) => f === params.get('fruit'))
 
   const [searchInput, setSearchInput] = useState(q) // lo que se escribe; la URL se actualiza con debounce
-  const [data, setData] = useState<Page<Wanted> | null>(null)
+  const [data, setData] = useState<WantedPageData | null>(null)
   const [crews, setCrews] = useState<Crew[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -74,7 +75,7 @@ function WantedPage() {
 
   // Las tripulaciones se piden una sola vez para llenar el select de filtro.
   useEffect(() => {
-    crewsService.list().then(setCrews).catch(() => setCrews([]))
+    wantedService.getCrews().then(setCrews).catch(() => setCrews([]))
   }, [])
 
   // Cada cambio de parámetros vuelve a pedir al servidor (paginación REAL del servidor).
@@ -85,9 +86,9 @@ function WantedPage() {
     setLoading(true)
     setError('')
     wantedService
-      .list({ page, size, sort, q, status, crewId, fruit }, controller.signal)
+      .getWanted({ page, size, sort, q, status, crewId: crewId || undefined, fruit }, controller.signal)
       .then(setData)
-      .catch((e) => {
+      .catch((e: unknown) => {
         if (!axios.isCancel(e)) setError('No se pudo cargar la lista.')
       })
       .finally(() => {
@@ -112,7 +113,7 @@ function WantedPage() {
 
       <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-3">
         <input className="rounded border p-2 md:col-span-3" placeholder="Buscar por nombre o epíteto..." value={searchInput} onChange={(e) => setSearchInput(e.target.value)} />
-        <select className="rounded border p-2" value={status} onChange={(e) => update({ status: e.target.value })}>
+        <select className="rounded border p-2" value={status ?? ''} onChange={(e) => update({ status: e.target.value })}>
           <option value="">Estado: todos</option>
           {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
@@ -120,7 +121,7 @@ function WantedPage() {
           <option value="">Tripulación: todas</option>
           {crews.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
-        <select className="rounded border p-2" value={fruit} onChange={(e) => update({ fruit: e.target.value })}>
+        <select className="rounded border p-2" value={fruit ?? ''} onChange={(e) => update({ fruit: e.target.value })}>
           <option value="">Fruta: todas</option>
           {FRUIT_OPTIONS.map((f) => <option key={f} value={f}>{f}</option>)}
         </select>
@@ -131,7 +132,6 @@ function WantedPage() {
           {SIZE_OPTIONS.map((s) => <option key={s} value={s}>{s} por página</option>)}
         </select>
       </div>
-      {/* TODO: STATUS_OPTIONS y FRUIT_OPTIONS dependen del Swagger. */}
 
       {/* min-h evita que el layout salte entre loading, error, vacío y resultados. */}
       <section className="min-h-64">

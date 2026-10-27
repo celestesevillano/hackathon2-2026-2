@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import axios from 'axios'
-import type { CursorPage } from '../types/api'
+
+// Página de un feed paginado por cursor (la misma forma que devuelve /news/feed).
+interface CursorPage<T> {
+  items: T[]
+  nextCursor: string | null
+  hasMore: boolean
+}
 
 // Infinite scroll a mano (sin librerías): los items se ACUMULAN en vez de reemplazarse.
 export function useInfiniteScroll<T extends { id: string }>(

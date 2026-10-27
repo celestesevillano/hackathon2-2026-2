@@ -1,10 +1,10 @@
 import { Link } from 'react-router-dom'
-import type { Wanted } from '../types/api'
+import type { WantedSummary } from '../types/api'
 
 // Igual que el componente Course de la clase: las props se describen con una interface
 // (un "contrato" de la forma de los datos) y se leen con llaves.
 interface WantedCardProps {
-  wanted: Wanted
+  wanted: WantedSummary
   fromSearch: string // los filtros actuales de la URL, para poder volver exactamente igual
 }
 
