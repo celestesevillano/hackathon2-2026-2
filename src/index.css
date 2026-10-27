@@ -6,7 +6,8 @@
   cuánto has bajado la página, no del tiempo. Solo se activa si el navegador
   lo soporta (@supports) y si la persona no pidió menos movimiento.
 */
-.scroll-progress {
+.scroll-progress,
+.scroll-progress-bar {
   position: fixed;
   top: 0;
   left: 0;
@@ -24,7 +25,8 @@
 
 @supports (animation-timeline: scroll()) {
   @media (prefers-reduced-motion: no-preference) {
-    .scroll-progress {
+    .scroll-progress,
+    .scroll-progress-bar {
       animation: grow-progress auto linear;
       animation-timeline: scroll(root block);
     }
@@ -35,8 +37,15 @@
 .ship {
   transition: left 0.8s ease-in-out, top 0.8s ease-in-out;
 }
+.ship-marker {
+  transition: transform 0.6s cubic-bezier(0.34, 1.3, 0.64, 1);
+}
 @media (prefers-reduced-motion: reduce) {
-  .ship {
-    transition: none;
+  .ship,
+  .ship-marker,
+  * {
+    transition: none !important;
+    animation: none !important;
+    scroll-behavior: auto !important;
   }
 }
